@@ -2,12 +2,17 @@ import tweepy  # https://github.com/tweepy/tweepy
 from secret import consumer_secret, consumer_key
 import datetime
 import pandas as pd
-
+import os
 
 # Twitter API credentials
 
+def parce_string_to_date (string_date):
+    year, month, day = string_date.split('-')
+    return datetime.date(int(year), int(month), int(day))
+
+
 def download_tweets(
-        screen_name
+    screen_name
 ):
     # Twitter only allows access to a users most recent 3240 tweets with this method
 
@@ -51,19 +56,77 @@ df = pd.read_csv('TSLA/TSLA.csv', encoding='cp1250')
 
 datePriceDict = {}
 
+startCandleDate = None
+startPrice = None
+endCandleDate = None
+
+candlesList = []
+
+x_data = []
+y_data = []
+
+# allTweets = download_tweets("elonmusk")
+allTweets = []
+all_tweet_files = os.listdir("tweets/")
+for file_path in all_tweet_files:
+    with open(f'tweets/{file_path}', 'r', encoding="utf-8") as f:
+        tweetFile = f.read()
+        tweet_id, tweet_date_str, tweet_text = tweetFile.split('////')
+        tweet_date = parce_string_to_date(tweet_date_str.split(' ')[0])
+        allTweets.append([tweet_id, tweet_date, tweet_text])
+
+# differ_types
+# 0 - equal
+# 1 - pump
+# 2 - dump
+tweetIndex = 0
+
 for rowIndex in range(len(df['Date'])):
-    y, m, d = df['Date'][rowIndex].split('-')
-    datePriceDict[df['Date'][rowIndex]] = df['Adj Close'][rowIndex]
+    nextPrice = df['Adj Close'][rowIndex]
 
-print(datePriceDict)
+    if startCandleDate == None:
+        print(df['Date'][rowIndex])
+        startCandleDate = parce_string_to_date(df['Date'][rowIndex])
+        startPrice = nextPrice
+    else:
+        endCandleDate = parce_string_to_date(df['Date'][rowIndex])
 
-download_tweets("elonmusk")
+        # define differ type
+        different_type = 0
+        ratio = startPrice / nextPrice
+        if ratio > 1.001:
+            different_type = 1
+        if ratio < 0.999:
+            different_type = 2
 
+        # For future calculate
+        #
+        # different = nextPrice - startPrice
+        # candlesList.append(different)
+        # startPrice = nextPrice
+
+        # datePriceDict[df['Date'][rowIndex]] = df['Adj Close'][rowIndex]
+
+        print(startCandleDate)
+        print(startPrice)
+        print(endCandleDate)
+        print(nextPrice)
+        startCandleDate = endCandleDate
+        startPrice = nextPrice
+        print(ratio)
+        print(tweetIndex)
+        while allTweets[tweetIndex][1] < endCandleDate:
+            x_data.append(allTweets[tweetIndex][2])
+            y_data.append(different_type)
+            tweetIndex = tweetIndex + 1
+        print(tweetIndex)
+        print('--------')
+
+# print(datePriceDict)
 
 def write_tweets_to_file(tweets):
     print(len(tweets))
     for tweet in tweets:
-        print(tweet)
         with open(f'tweets/{tweet[0]}.txt', 'w', encoding="utf-8") as f:
             f.write(f'{tweet[0]}////{tweet[1]}////{tweet[2]}')
     pass
