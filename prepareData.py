@@ -63,7 +63,7 @@ def download_tweets(
     return [[tweet.id_str, tweet.created_at, tweet.text] for tweet in alltweets]
 
 
-df = pd.read_csv('TSLA/TSLA.csv', encoding='cp1250')
+TSLADataFrame = pd.read_csv('TSLA/TSLA.csv', encoding='cp1250')
 
 datePriceDict = {}
 
@@ -78,14 +78,32 @@ y_data = []
 # download tweets and write to file
 # write_tweets_to_file(download_tweets("elonmusk"))
 
+tweetsDataFrame = pd.read_csv('tweets/TweetsElonMusk.csv', encoding='utf-8')
+print(tweetsDataFrame.keys())
+
+tweetsDataFrame["created_at"] = pd.to_datetime(tweetsDataFrame["created_at"])
+
+# verify datatype
+print(type(tweetsDataFrame.created_at[0]))
+
 allTweets = []
+
+tweetsDataFrame = tweetsDataFrame.sort_values(by=["created_at"], ignore_index=True)
+
+for rowIndex in range(len(tweetsDataFrame['created_at'])):
+    allTweets.append([
+        tweetsDataFrame['id'][rowIndex],
+        parce_string_to_date(tweetsDataFrame['date'][rowIndex]),
+        tweetsDataFrame['tweet'][rowIndex]
+    ])
+
 all_tweet_files = os.listdir("tweets/")
-for file_path in all_tweet_files:
-    with open(f'tweets/{file_path}', 'r', encoding="utf-8") as f:
-        tweetFile = f.read()
-        tweet_id, tweet_date_str, tweet_text = tweetFile.split('////')
-        tweet_date = parce_string_to_date(tweet_date_str.split(' ')[0])
-        allTweets.append([tweet_id, tweet_date, tweet_text])
+# for file_path in all_tweet_files:
+#     with open(f'tweets/{file_path}', 'r', encoding="utf-8") as f:
+#         tweetFile = f.read()
+#         tweet_id, tweet_date_str, tweet_text = tweetFile.split('////')
+#         tweet_date = parce_string_to_date(tweet_date_str.split(' ')[0])
+#         allTweets.append([tweet_id, tweet_date, tweet_text])
 
 # differ_types
 # 0 - equal
@@ -93,15 +111,13 @@ for file_path in all_tweet_files:
 # 2 - dump
 tweetIndex = 0
 
-for rowIndex in range(len(df['Date'])):
-    nextPrice = df['Adj Close'][rowIndex]
-
+for rowIndex in range(len(TSLADataFrame['Date'])):
+    nextPrice = TSLADataFrame['Adj Close'][rowIndex]
     if startCandleDate == None:
-        print(df['Date'][rowIndex])
-        startCandleDate = parce_string_to_date(df['Date'][rowIndex])
+        startCandleDate = parce_string_to_date(TSLADataFrame['Date'][rowIndex])
         startPrice = nextPrice
     else:
-        endCandleDate = parce_string_to_date(df['Date'][rowIndex])
+        endCandleDate = parce_string_to_date(TSLADataFrame['Date'][rowIndex])
 
         # define differ type
         different_type = 0
@@ -110,7 +126,6 @@ for rowIndex in range(len(df['Date'])):
             different_type = 2
         if ratio < 0.999:
             different_type = 1
-        # print(different_type)
         # For future calculate
         #
         # different = nextPrice - startPrice
@@ -125,17 +140,19 @@ for rowIndex in range(len(df['Date'])):
         # print(nextPrice)
         startCandleDate = endCandleDate
         startPrice = nextPrice
-        # print(ratio)
-        # print(tweetIndex)
-        while allTweets[tweetIndex][1] < endCandleDate:
-            x_data.append(allTweets[tweetIndex][2])
-            y_data.append(different_type)
-            tweetIndex = tweetIndex + 1
-        # print(tweetIndex)
-        # print('--------')
+
+        try:
+            while allTweets[tweetIndex][1] < endCandleDate:
+                x_data.append(allTweets[tweetIndex][2])
+                y_data.append(different_type)
+                tweetIndex = tweetIndex + 1
+        except IndexError:
+            print(f'tweet with {tweetIndex} index not added')
+
 
 # print(datePriceDict)
-
+print(len(x_data))
+print(len(y_data))
 def make_tokenizer(
     VOCAB_SIZE,
     txt_train
@@ -214,12 +231,12 @@ def make_train_test(
     return seq_train, seq_test, seq_val
 
 
-VOCAB_SIZE = 20000
+VOCAB_SIZE = 12000
 WIN_SIZE = 8
 WIN_HOP = 1
-train_text_size = 3000
-test_text_size = 100
-val_text_size = 100
+train_text_size = 9000
+test_text_size = 1500
+val_text_size = 2000
 
 text_train = x_data[:train_text_size]
 classes_train = y_data[:train_text_size]

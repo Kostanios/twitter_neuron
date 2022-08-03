@@ -16,16 +16,16 @@ def make_mod(
 ):
 
     model = Sequential()
-    model.add(Embedding(VOCAB_SIZE, 10, input_length=WIN_SIZE))
+    model.add(Embedding(VOCAB_SIZE, 35, input_length=WIN_SIZE))
     model.add(SpatialDropout1D(0.2))
     model.add(BatchNormalization())
-    model.add(Conv1D(20, 3, activation='relu'))
-    model.add(Conv1D(20, 3, activation='relu'))
-    model.add(MaxPooling1D(2))
+    model.add(Conv1D(2, 1, activation='relu'))
+    model.add(Conv1D(2, 1, activation='relu'))
+    model.add(MaxPooling1D(1))
     model.add(Dropout(0.2))
     model.add(BatchNormalization())
     model.add(Flatten())
-    model.add(Dense(100, activation='relu'))
+    model.add(Dense(35, activation='relu'))
     model.add(Dense(CLASS_COUNT, activation='softmax'))
     return model
 
@@ -160,7 +160,7 @@ mymodel = compile_train_eval_model(
     x_train, y_train,
     x_test, y_test,
     optimizer='adam',
-    epochs=50,
+    epochs=150,
     batch_size=200,
     class_labels=CLASS_LIST,
     title='elonmask tweets'
