@@ -16,16 +16,16 @@ def make_mod(
 ):
 
     model = Sequential()
-    model.add(Embedding(VOCAB_SIZE, 35, input_length=WIN_SIZE))
+    model.add(Embedding(VOCAB_SIZE, 32, input_length=WIN_SIZE))
     model.add(SpatialDropout1D(0.2))
     model.add(BatchNormalization())
-    model.add(Conv1D(2, 1, activation='relu'))
+    model.add(Conv1D(3, 1, activation='relu'))
     model.add(Conv1D(2, 1, activation='relu'))
     model.add(MaxPooling1D(1))
     model.add(Dropout(0.2))
     model.add(BatchNormalization())
     model.add(Flatten())
-    model.add(Dense(35, activation='relu'))
+    model.add(Dense(32, activation='relu'))
     model.add(Dense(CLASS_COUNT, activation='softmax'))
     return model
 
@@ -99,7 +99,6 @@ def eval_model(
 
     fig, ax = plt.subplots(figsize=figsize)
     ax.set_title(f'Neural network {title}: normalized mistakes matrix', fontsize=18)
-    plt.gca().images[-1].colorbar.remove()
     plt.xlabel('prediction classes', fontsize=26)
     plt.ylabel('actual classes', fontsize=26)
     fig.autofmt_xdate(rotation=45)
@@ -160,7 +159,7 @@ mymodel = compile_train_eval_model(
     x_train, y_train,
     x_test, y_test,
     optimizer='adam',
-    epochs=150,
+    epochs=15,
     batch_size=200,
     class_labels=CLASS_LIST,
     title='elonmask tweets'

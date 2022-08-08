@@ -90,12 +90,17 @@ allTweets = []
 
 tweetsDataFrame = tweetsDataFrame.sort_values(by=["created_at"], ignore_index=True)
 
+
+
 for rowIndex in range(len(tweetsDataFrame['created_at'])):
     allTweets.append([
         tweetsDataFrame['id'][rowIndex],
         parce_string_to_date(tweetsDataFrame['date'][rowIndex]),
-        tweetsDataFrame['tweet'][rowIndex]
+        tweetsDataFrame['tweet'][rowIndex],
+        tweetsDataFrame["likes_count"][rowIndex],
+        tweetsDataFrame["retweets_count"][[rowIndex]]
     ])
+print(len(allTweets))
 
 all_tweet_files = os.listdir("tweets/")
 # for file_path in all_tweet_files:
@@ -138,14 +143,36 @@ for rowIndex in range(len(TSLADataFrame['Date'])):
         # print(startPrice)
         # print(endCandleDate)
         # print(nextPrice)
-        startCandleDate = endCandleDate
-        startPrice = nextPrice
 
         try:
+            tweetsLikesCount = 0
+            tweetsRetweetsCount = 0
+            periodTweets = []
+            periodValues = []
+
+
             while allTweets[tweetIndex][1] < endCandleDate:
-                x_data.append(allTweets[tweetIndex][2])
-                y_data.append(different_type)
+                if allTweets[tweetIndex][1] >= startCandleDate:
+                    tweetsLikesCount += allTweets[tweetIndex][3]
+                    tweetsRetweetsCount += allTweets[tweetIndex][4]
+                    periodTweets.append(allTweets[tweetIndex])
+                    periodValues.append(different_type)
+                else:
+                    print(f'{allTweets[tweetIndex][1]} - tweet date')
+                    print(f'{endCandleDate} - end date')
                 tweetIndex = tweetIndex + 1
+
+            if len(periodTweets) > 0:
+                tweetsLikesCountMinimum = tweetsLikesCount / len(periodTweets) / 5
+                tweetsRetweetsCountMinimum = tweetsRetweetsCount / len(periodTweets) / 4
+
+                for periodTweetIndex in range(len(periodTweets)):
+                    if periodTweets[periodTweetIndex][3] > 0:
+                        x_data.append(periodTweets[periodTweetIndex][2])
+                        y_data.append(periodValues[periodTweetIndex])
+
+            startCandleDate = endCandleDate
+            startPrice = nextPrice
         except IndexError:
             print(f'tweet with {tweetIndex} index not added')
 
@@ -231,12 +258,12 @@ def make_train_test(
     return seq_train, seq_test, seq_val
 
 
-VOCAB_SIZE = 12000
+VOCAB_SIZE = 20000
 WIN_SIZE = 8
 WIN_HOP = 1
-train_text_size = 9000
-test_text_size = 1500
-val_text_size = 2000
+train_text_size = int(len(x_data)*0.7)
+test_text_size = int(len(x_data)*0.05)
+val_text_size = int(len(x_data)*0.25)
 
 text_train = x_data[:train_text_size]
 classes_train = y_data[:train_text_size]
