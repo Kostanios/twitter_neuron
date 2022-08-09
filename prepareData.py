@@ -5,6 +5,7 @@ import numpy as np
 import os
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras import utils
+import re
 
 from secret import consumer_secret, consumer_key
 
@@ -96,7 +97,7 @@ for rowIndex in range(len(tweetsDataFrame['created_at'])):
     allTweets.append([
         tweetsDataFrame['id'][rowIndex],
         parce_string_to_date(tweetsDataFrame['date'][rowIndex]),
-        tweetsDataFrame['tweet'][rowIndex],
+        re.sub(r"@[A-z]+|_ ", "", tweetsDataFrame['tweet'][rowIndex]),
         tweetsDataFrame["likes_count"][rowIndex],
         tweetsDataFrame["retweets_count"][[rowIndex]]
     ])
@@ -112,8 +113,9 @@ all_tweet_files = os.listdir("tweets/")
 
 # differ_types
 # 0 - equal
-# 1 - pump
-# 2 - dump
+# 1 - dump
+# 2 - pump
+
 tweetIndex = 0
 
 for rowIndex in range(len(TSLADataFrame['Date'])):
@@ -163,8 +165,7 @@ for rowIndex in range(len(TSLADataFrame['Date'])):
                 tweetIndex = tweetIndex + 1
 
             if len(periodTweets) > 0:
-                tweetsLikesCountMinimum = tweetsLikesCount / len(periodTweets) / 5
-                tweetsRetweetsCountMinimum = tweetsRetweetsCount / len(periodTweets) / 4
+                tweetsLikesCountMinimum = tweetsLikesCount / len(periodTweets) / 4
 
                 for periodTweetIndex in range(len(periodTweets)):
                     if periodTweets[periodTweetIndex][3] > 0:
@@ -175,7 +176,6 @@ for rowIndex in range(len(TSLADataFrame['Date'])):
             startPrice = nextPrice
         except IndexError:
             print(f'tweet with {tweetIndex} index not added')
-
 
 # print(datePriceDict)
 print(len(x_data))
@@ -276,8 +276,8 @@ tok = make_tokenizer(VOCAB_SIZE, text_train)
 seq_train, seq_test, seq_val = make_train_test(tok, text_train, text_test, text_val)
 
 print("Фрагмент обучающего текста:")
-print("В виде оригинального текста:              ", text_train[0][:101])
-print("Он же в виде последовательности индексов: ", seq_train[0][:20])
+print("В виде оригинального текста:              ", text_train[100][:101])
+print("Он же в виде последовательности индексов: ", seq_train[100][:20])
 
 x_train, y_train = vectorize_sequence(seq_train, classes_train, WIN_SIZE, WIN_HOP)
 x_test, y_test = vectorize_sequence(seq_test, classes_test, WIN_SIZE, WIN_HOP)

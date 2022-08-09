@@ -7,7 +7,7 @@ from sklearn.metrics import confusion_matrix
 
 from prepareData import VOCAB_SIZE, WIN_SIZE, x_train, y_train, x_test, y_test, x_val, y_val
 
-CLASS_LIST = ['neutral', 'pump', 'dump']
+CLASS_LIST = ['neutral', 'dump', 'pump']
 
 def make_mod(
     VOCAB_SIZE,
@@ -19,7 +19,7 @@ def make_mod(
     model.add(Embedding(VOCAB_SIZE, 32, input_length=WIN_SIZE))
     model.add(SpatialDropout1D(0.2))
     model.add(BatchNormalization())
-    model.add(Conv1D(3, 1, activation='relu'))
+    model.add(Conv1D(2, 1, activation='relu'))
     model.add(Conv1D(2, 1, activation='relu'))
     model.add(MaxPooling1D(1))
     model.add(Dropout(0.2))
