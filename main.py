@@ -16,7 +16,7 @@ def make_mod(
 ):
 
     model = Sequential()
-    model.add(Embedding(VOCAB_SIZE, 32, input_length=WIN_SIZE))
+    model.add(Embedding(VOCAB_SIZE, 100, input_length=WIN_SIZE))
     model.add(SpatialDropout1D(0.2))
     model.add(BatchNormalization())
     model.add(Conv1D(2, 1, activation='relu'))
@@ -25,7 +25,7 @@ def make_mod(
     model.add(Dropout(0.2))
     model.add(BatchNormalization())
     model.add(Flatten())
-    model.add(Dense(32, activation='relu'))
+    model.add(Dense(100, activation='relu'))
     model.add(Dense(CLASS_COUNT, activation='softmax'))
     return model
 

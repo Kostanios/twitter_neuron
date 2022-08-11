@@ -6,12 +6,14 @@ import os
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras import utils
 import re
-
+from sklearn.model_selection import train_test_split
 from secret import consumer_secret, consumer_key
+import gensim
+
 
 # Twitter API credentials
 
-def parce_string_to_date (string_date):
+def parce_string_to_date(string_date):
     year, month, day = string_date.split('-')
     return datetime.date(int(year), int(month), int(day))
 
@@ -23,8 +25,9 @@ def write_tweets_to_file(tweets):
             f.write(f'{tweet[0]}////{tweet[1]}////{tweet[2]}')
     pass
 
+
 def download_tweets(
-    screen_name
+        screen_name
 ):
     # Twitter only allows access to a users most recent 3240 tweets with this method
 
@@ -76,6 +79,8 @@ candlesList = []
 
 x_data = []
 y_data = []
+
+word2vecDF = pd.DataFrame()
 # download tweets and write to file
 # write_tweets_to_file(download_tweets("elonmusk"))
 
@@ -91,13 +96,11 @@ allTweets = []
 
 tweetsDataFrame = tweetsDataFrame.sort_values(by=["created_at"], ignore_index=True)
 
-
-
 for rowIndex in range(len(tweetsDataFrame['created_at'])):
     allTweets.append([
         tweetsDataFrame['id'][rowIndex],
         parce_string_to_date(tweetsDataFrame['date'][rowIndex]),
-        re.sub(r"@[A-z]+|_ ", "", tweetsDataFrame['tweet'][rowIndex]),
+        re.sub(r"@[A-z]+|_", "nickname", tweetsDataFrame['tweet'][rowIndex]),
         tweetsDataFrame["likes_count"][rowIndex],
         tweetsDataFrame["retweets_count"][[rowIndex]]
     ])
@@ -120,7 +123,7 @@ tweetIndex = 0
 
 for rowIndex in range(len(TSLADataFrame['Date'])):
     nextPrice = TSLADataFrame['Adj Close'][rowIndex]
-    if startCandleDate == None:
+    if startCandleDate is None:
         startCandleDate = parce_string_to_date(TSLADataFrame['Date'][rowIndex])
         startPrice = nextPrice
     else:
@@ -129,9 +132,9 @@ for rowIndex in range(len(TSLADataFrame['Date'])):
         # define differ type
         different_type = 0
         ratio = startPrice / nextPrice
-        if ratio > 1.001:
+        if ratio > 1.01:
             different_type = 2
-        if ratio < 0.999:
+        if ratio < 0.99:
             different_type = 1
         # For future calculate
         #
@@ -152,7 +155,6 @@ for rowIndex in range(len(TSLADataFrame['Date'])):
             periodTweets = []
             periodValues = []
 
-
             while allTweets[tweetIndex][1] < endCandleDate:
                 if allTweets[tweetIndex][1] >= startCandleDate:
                     tweetsLikesCount += allTweets[tweetIndex][3]
@@ -165,10 +167,11 @@ for rowIndex in range(len(TSLADataFrame['Date'])):
                 tweetIndex = tweetIndex + 1
 
             if len(periodTweets) > 0:
-                tweetsLikesCountMinimum = tweetsLikesCount / len(periodTweets) / 4
+                tweetsLikesCountMinimum = tweetsLikesCount / len(periodTweets)
 
                 for periodTweetIndex in range(len(periodTweets)):
                     if periodTweets[periodTweetIndex][3] > 0:
+                        word2vecDF = word2vecDF.append({'text': periodTweets[periodTweetIndex][2], 'type': periodValues[periodTweetIndex]}, ignore_index=True)
                         x_data.append(periodTweets[periodTweetIndex][2])
                         y_data.append(periodValues[periodTweetIndex])
 
@@ -180,9 +183,11 @@ for rowIndex in range(len(TSLADataFrame['Date'])):
 # print(datePriceDict)
 print(len(x_data))
 print(len(y_data))
+
+
 def make_tokenizer(
-    VOCAB_SIZE,
-    txt_train
+        VOCAB_SIZE,
+        txt_train
 ):
     tokenizer = Tokenizer(num_words=VOCAB_SIZE,
                           filters='!"#$%&()*+,-–—./…:;<=>?@[\\]^_`{|}~«»\t\n\xa0\ufeff',
@@ -193,6 +198,7 @@ def make_tokenizer(
 
     tokenizer.fit_on_texts(txt_train)
     return tokenizer
+
 
 def make_train_test(
         tokenizer,
@@ -209,6 +215,7 @@ def make_train_test(
         seq_test = None
 
     return seq_train, seq_test
+
 
 def split_sequence(
         sequence,
@@ -259,18 +266,18 @@ def make_train_test(
 
 
 VOCAB_SIZE = 20000
-WIN_SIZE = 8
+WIN_SIZE = 5
 WIN_HOP = 1
-train_text_size = int(len(x_data)*0.7)
-test_text_size = int(len(x_data)*0.05)
-val_text_size = int(len(x_data)*0.25)
+train_text_size = int(len(x_data) * 0.7)
+test_text_size = int(len(x_data) * 0.05)
+val_text_size = int(len(x_data) * 0.25)
 
 text_train = x_data[:train_text_size]
 classes_train = y_data[:train_text_size]
-text_test = x_data[train_text_size:train_text_size+test_text_size]
-classes_test = y_data[train_text_size:train_text_size+test_text_size]
-text_val = x_data[train_text_size+test_text_size:]
-classes_val = y_data[train_text_size+test_text_size:]
+text_test = x_data[train_text_size:train_text_size + test_text_size]
+classes_test = y_data[train_text_size:train_text_size + test_text_size]
+text_val = x_data[train_text_size + test_text_size:]
+classes_val = y_data[train_text_size + test_text_size:]
 
 tok = make_tokenizer(VOCAB_SIZE, text_train)
 seq_train, seq_test, seq_val = make_train_test(tok, text_train, text_test, text_val)
@@ -285,3 +292,7 @@ x_val, y_val = vectorize_sequence(seq_val, classes_val, WIN_SIZE, WIN_HOP)
 
 print(x_train.shape, y_train.shape)
 print(x_test.shape, y_test.shape)
+
+word2vecDF['text_clean'] = word2vecDF['text'].apply(lambda text: gensim.utils.simple_preprocess(text))
+word2vecDF['text_clean'] = word2vecDF['text'].apply(lambda text: gensim.utils.simple_preprocess(text))
+w2X_train, w2X_test, w2y_train, w2y_test = train_test_split(word2vecDF['text_clean'], word2vecDF['type'], test_size=0.2)
