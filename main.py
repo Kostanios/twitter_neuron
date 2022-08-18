@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, SpatialDropout1D, BatchNormalization, Embedding, Flatten, Conv1D, MaxPooling1D
 from tensorflow.keras.utils import plot_model
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 from prepareData import VOCAB_SIZE, WIN_SIZE, x_train, y_train, x_test, y_test, x_val, y_val
 
@@ -99,6 +99,9 @@ def eval_model(
 
     fig, ax = plt.subplots(figsize=figsize)
     ax.set_title(f'Neural network {title}: normalized mistakes matrix', fontsize=18)
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm,
+                                  display_labels=class_labels)
+    disp.plot(ax=ax)
     plt.xlabel('prediction classes', fontsize=26)
     plt.ylabel('actual classes', fontsize=26)
     fig.autofmt_xdate(rotation=45)
@@ -109,6 +112,7 @@ def eval_model(
 
     for cls in range(len(class_labels)):
         # max confidence
+        print(len(cm[cls]))
         cls_pred = np.argmax(cm[cls])
         msg = 'true :-)' if cls_pred == cls else 'false :-('
         print('Class: {:<20} {:3.0f}% classify as {:<20} - {}'.format(

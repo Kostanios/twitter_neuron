@@ -9,6 +9,7 @@ import re
 from sklearn.model_selection import train_test_split
 from secret import consumer_secret, consumer_key
 import gensim
+import matplotlib.pyplot as plt
 
 
 # Twitter API credentials
@@ -121,6 +122,10 @@ all_tweet_files = os.listdir("tweets/")
 
 tweetIndex = 0
 
+pump_count = 0
+dump_count = 0
+neutral_count = 0
+
 for rowIndex in range(len(TSLADataFrame['Date'])):
     nextPrice = TSLADataFrame['Adj Close'][rowIndex]
     if startCandleDate is None:
@@ -132,9 +137,9 @@ for rowIndex in range(len(TSLADataFrame['Date'])):
         # define differ type
         different_type = 0
         ratio = startPrice / nextPrice
-        if ratio > 1.01:
+        if ratio > 1.001:
             different_type = 2
-        if ratio < 0.99:
+        if ratio < 0.999:
             different_type = 1
         # For future calculate
         #
@@ -167,13 +172,19 @@ for rowIndex in range(len(TSLADataFrame['Date'])):
                 tweetIndex = tweetIndex + 1
 
             if len(periodTweets) > 0:
-                tweetsLikesCountMinimum = tweetsLikesCount / len(periodTweets)
+                tweetsLikesCountMinimum = tweetsLikesCount / len(periodTweets) / 2
 
                 for periodTweetIndex in range(len(periodTweets)):
-                    if periodTweets[periodTweetIndex][3] > 0:
+                    if periodTweets[periodTweetIndex][3] > tweetsLikesCountMinimum:
                         word2vecDF = word2vecDF.append({'text': periodTweets[periodTweetIndex][2], 'type': periodValues[periodTweetIndex]}, ignore_index=True)
                         x_data.append(periodTweets[periodTweetIndex][2])
                         y_data.append(periodValues[periodTweetIndex])
+                        if periodValues[periodTweetIndex] == 1:
+                            dump_count += 1
+                        if periodValues[periodTweetIndex] == 2:
+                            pump_count += 1
+                        if periodValues[periodTweetIndex] == 0:
+                            neutral_count += 1
 
             startCandleDate = endCandleDate
             startPrice = nextPrice
@@ -264,7 +275,14 @@ def make_train_test(
 
     return seq_train, seq_test, seq_val
 
+diagramX = [1, 2, 3]
+tick_label = ['dump', 'pump', 'neutral']
+diagramY = [dump_count, pump_count, neutral_count]
 
+plt.bar(diagramX, diagramY, tick_label=tick_label,
+        width=0.8, color=['red', 'green'])
+plt.title('tweets data!')
+plt.show()
 VOCAB_SIZE = 20000
 WIN_SIZE = 5
 WIN_HOP = 1
