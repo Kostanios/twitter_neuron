@@ -3,8 +3,8 @@ import datetime
 import pandas as pd
 import numpy as np
 import os
-from tensorflow.keras.preprocessing.text import Tokenizer
-from tensorflow.keras import utils
+from keras.preprocessing.text import Tokenizer
+from keras import utils
 import re
 from sklearn.model_selection import train_test_split
 from secret import consumer_secret, consumer_key
@@ -25,6 +25,16 @@ def write_tweets_to_file(tweets):
         with open(f'tweets/{tweet[0]}.txt', 'w', encoding="utf-8") as f:
             f.write(f'{tweet[0]}////{tweet[1]}////{tweet[2]}')
     pass
+
+
+def key_words_filter(regexes, sentence):
+    is_word_mean = False
+    for regex in regexes:
+        matches = re.match(regex, sentence)
+        if matches is not None:
+            is_word_mean = True
+            break
+    return is_word_mean
 
 
 def download_tweets(
@@ -98,13 +108,17 @@ allTweets = []
 tweetsDataFrame = tweetsDataFrame.sort_values(by=["created_at"], ignore_index=True)
 
 for rowIndex in range(len(tweetsDataFrame['created_at'])):
-    allTweets.append([
-        tweetsDataFrame['id'][rowIndex],
-        parce_string_to_date(tweetsDataFrame['date'][rowIndex]),
-        re.sub(r"@[A-z]+|_", "nickname", tweetsDataFrame['tweet'][rowIndex]),
-        tweetsDataFrame["likes_count"][rowIndex],
-        tweetsDataFrame["retweets_count"][[rowIndex]]
-    ])
+    tweets_key_regexes = [r"tesla", r"tsla", r"team", r"giga berlin", r"teams", r"model .*", r"model", r"autopilot",
+                          r"car", r"radar", r"space", r"star"]
+    tweet_text = re.sub(r"@[A-z]+|_", "nickname", tweetsDataFrame['tweet'][rowIndex]).lower()
+    if key_words_filter(tweets_key_regexes, tweet_text):
+        allTweets.append([
+            tweetsDataFrame['id'][rowIndex],
+            parce_string_to_date(tweetsDataFrame['date'][rowIndex]),
+            tweet_text,
+            tweetsDataFrame["likes_count"][rowIndex],
+            tweetsDataFrame["retweets_count"][[rowIndex]]
+        ])
 print(len(allTweets))
 
 all_tweet_files = os.listdir("tweets/")
@@ -137,9 +151,9 @@ for rowIndex in range(len(TSLADataFrame['Date'])):
         # define differ type
         different_type = 0
         ratio = startPrice / nextPrice
-        if ratio > 1.001:
+        if ratio > 1.01:
             different_type = 2
-        if ratio < 0.999:
+        if ratio < 0.99:
             different_type = 1
         # For future calculate
         #
@@ -172,16 +186,24 @@ for rowIndex in range(len(TSLADataFrame['Date'])):
                 tweetIndex = tweetIndex + 1
 
             if len(periodTweets) > 0:
-                tweetsLikesCountMinimum = tweetsLikesCount / len(periodTweets) / 2
-
+                # tweetsLikesCountMinimum = tweetsLikesCount / len(periodTweets) / 2
+                tweetsLikesCountMinimum = 0
                 for periodTweetIndex in range(len(periodTweets)):
                     if periodTweets[periodTweetIndex][3] > tweetsLikesCountMinimum:
-                        word2vecDF = word2vecDF.append({'text': periodTweets[periodTweetIndex][2], 'type': periodValues[periodTweetIndex]}, ignore_index=True)
+                        word2vecDF = word2vecDF.append(
+                            {'text': periodTweets[periodTweetIndex][2], 'type': periodValues[periodTweetIndex]},
+                            ignore_index=True)
                         x_data.append(periodTweets[periodTweetIndex][2])
                         y_data.append(periodValues[periodTweetIndex])
                         if periodValues[periodTweetIndex] == 1:
+                            with open(f'tweets/{periodTweets[periodTweetIndex][0]}.txt', 'w', encoding="utf-8") as f:
+                                f.write(
+                                    f'{periodTweets[periodTweetIndex][0]}////{periodTweets[periodTweetIndex][1]}////{periodTweets[periodTweetIndex][2]}')
                             dump_count += 1
                         if periodValues[periodTweetIndex] == 2:
+                            with open(f'tweets/{periodTweets[periodTweetIndex][0]}.txt', 'w', encoding="utf-8") as f:
+                                f.write(
+                                    f'{periodTweets[periodTweetIndex][0]}////{periodTweets[periodTweetIndex][1]}////{periodTweets[periodTweetIndex][2]}')
                             pump_count += 1
                         if periodValues[periodTweetIndex] == 0:
                             neutral_count += 1
@@ -240,18 +262,38 @@ def vectorize_sequence(
         seq_list,
         y_list,
         win_size,
-        hop
+        hop,
+        title
 ):
     tweets_count = len(seq_list)
     x, y = [], []
 
+    pump_count_tokens = 0
+    dump_count_tokens = 0
+    neutral_count_tokens = 0
+
     for tweet_index in range(tweets_count):
         vectors = split_sequence(seq_list[tweet_index], win_size, hop)
         x += vectors
+        if y_list[tweet_index] == 0:
+            neutral_count_tokens += len(vectors)
+        if y_list[tweet_index] == 1:
+            dump_count_tokens += len(vectors)
+        if y_list[tweet_index] == 2:
+            pump_count_tokens += len(vectors)
+
         y += [utils.to_categorical(y_list[tweet_index], 3)] * len(vectors)
 
-    return np.array(x), np.array(y)
+    diagramX = [1, 2, 3]
+    tick_label = ['dump', 'pump', 'neutral']
+    diagramY = [dump_count_tokens, pump_count_tokens, neutral_count_tokens]
 
+    plt.bar(diagramX, diagramY, tick_label=tick_label,
+            width=0.8, color=['red', 'green'])
+    plt.title(f'tweets {title} tokens data!')
+    plt.show()
+
+    return np.array(x), np.array(y)
 
 def make_train_test(
         tokenizer,
@@ -269,11 +311,12 @@ def make_train_test(
         seq_test = None
     if txt_val:
         # transform word to tokens
-        seq_val = tokenizer.texts_to_sequences(txt_test)
+        seq_val = tokenizer.texts_to_sequences(txt_val)
     else:
         seq_val = None
 
     return seq_train, seq_test, seq_val
+
 
 diagramX = [1, 2, 3]
 tick_label = ['dump', 'pump', 'neutral']
@@ -304,12 +347,13 @@ print("Фрагмент обучающего текста:")
 print("В виде оригинального текста:              ", text_train[100][:101])
 print("Он же в виде последовательности индексов: ", seq_train[100][:20])
 
-x_train, y_train = vectorize_sequence(seq_train, classes_train, WIN_SIZE, WIN_HOP)
-x_test, y_test = vectorize_sequence(seq_test, classes_test, WIN_SIZE, WIN_HOP)
-x_val, y_val = vectorize_sequence(seq_val, classes_val, WIN_SIZE, WIN_HOP)
+x_train, y_train = vectorize_sequence(seq_train, classes_train, WIN_SIZE, WIN_HOP, 'train')
+x_test, y_test = vectorize_sequence(seq_test, classes_test, WIN_SIZE, WIN_HOP, 'test')
+x_val, y_val = vectorize_sequence(seq_val, classes_val, WIN_SIZE, WIN_HOP, 'val')
 
 print(x_train.shape, y_train.shape)
 print(x_test.shape, y_test.shape)
+print(x_val.shape, y_val.shape)
 
 word2vecDF['text_clean'] = word2vecDF['text'].apply(lambda text: gensim.utils.simple_preprocess(text))
 word2vecDF['text_clean'] = word2vecDF['text'].apply(lambda text: gensim.utils.simple_preprocess(text))

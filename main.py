@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, SpatialDropout1D, BatchNormalization, Embedding, Flatten, Conv1D, MaxPooling1D
-from tensorflow.keras.utils import plot_model
+from keras.models import Sequential
+from keras.layers import Dense, Dropout, SpatialDropout1D, BatchNormalization, Embedding, Flatten, Conv1D, MaxPooling1D
+from keras.utils import plot_model
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 from prepareData import VOCAB_SIZE, WIN_SIZE, x_train, y_train, x_test, y_test, x_val, y_val
@@ -14,7 +14,6 @@ def make_mod(
     WIN_SIZE,
     CLASS_COUNT
 ):
-
     model = Sequential()
     model.add(Embedding(VOCAB_SIZE, 100, input_length=WIN_SIZE))
     model.add(SpatialDropout1D(0.2))
@@ -163,8 +162,8 @@ mymodel = compile_train_eval_model(
     x_train, y_train,
     x_test, y_test,
     optimizer='adam',
-    epochs=15,
-    batch_size=200,
+    epochs=50,
+    batch_size=20,
     class_labels=CLASS_LIST,
     title='elonmask tweets'
 )
@@ -178,6 +177,6 @@ print(y_val)
 
 r = np.argmax(y_pred, axis=1)
 unique, counts = np.unique(r, return_counts=True)
-counts = counts/y_pred.shape[0]*100
+counts = counts / y_pred.shape[0] * 100
 print(unique, counts)
 
