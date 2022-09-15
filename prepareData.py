@@ -3,8 +3,8 @@ import datetime
 import pandas as pd
 import numpy as np
 import os
-from tensorflow.keras.preprocessing.text import Tokenizer
-from tensorflow.keras import utils
+from keras.preprocessing.text import Tokenizer
+from keras import utils
 import re
 from sklearn.model_selection import train_test_split
 from secret import consumer_secret, consumer_key
@@ -90,6 +90,15 @@ word2vecDF = pd.DataFrame()
 # download tweets and write to file
 # write_tweets_to_file(download_tweets("elonmusk"))
 
+def key_words_filter(regexes, sentence):
+    is_word_mean = False
+    for regex in regexes:
+        matches = re.match(regex, sentence)
+        if matches is not None:
+            is_word_mean = True
+            break
+    return is_word_mean
+
 tweetsDataFrame = pd.read_csv('tweets/TweetsElonMusk.csv', encoding='utf-8')
 print(tweetsDataFrame.keys())
 
@@ -121,13 +130,17 @@ for rowIndex in range(tweetsLen):
     pos = pos + (kvp['pos'] / tweetsLen)
     compound = compound + (kvp['compound'] / tweetsLen)
 
-    allTweets.append([
-        tweetsDataFrame['id'][rowIndex],
-        parce_string_to_date(tweetsDataFrame['date'][rowIndex]),
-        re.sub(r"@[A-z]+|_", "nickname", tweetsDataFrame['tweet'][rowIndex]),
-        tweetsDataFrame["likes_count"][rowIndex],
-        tweetsDataFrame["retweets_count"][[rowIndex]]
-    ])
+    tweets_key_regexes = [r"tesla", r"tsla", r"team", r"giga berlin", r"teams", r"model .*", r"model", r"autopilot",
+                          r"car", r"radar", r"space", r"star"]
+    tweet_text = re.sub(r"@[A-z]+|_", "nickname", tweetsDataFrame['tweet'][rowIndex]).lower()
+    if key_words_filter(tweets_key_regexes, tweet_text):
+        allTweets.append([
+            tweetsDataFrame['id'][rowIndex],
+            parce_string_to_date(tweetsDataFrame['date'][rowIndex]),
+            re.sub(r"@[A-z]+|_", "nickname", tweetsDataFrame['tweet'][rowIndex]),
+            tweetsDataFrame["likes_count"][rowIndex],
+            tweetsDataFrame["retweets_count"][[rowIndex]]
+        ])
 
 print(len(allTweets))
 print(f'neg - {neg}')
@@ -239,9 +252,9 @@ for rowIndex in range(len(TSLADataFrame['Date'])):
         # define differ type
         different_type = 0
         ratio = startPrice / nextPrice
-        if ratio > 1.012:
+        if ratio > 1.03:
             different_type = 1
-        if ratio < 0.98:
+        if ratio < 0.97:
             different_type = 1
         # For future calculate
         #
@@ -351,12 +364,20 @@ def vectorize_sequence(
     tweets_count = len(seq_list)
     x, y = [], []
 
+    neutral_count_tokens = 0
+    differ_count_tokens = 0
+
     for tweet_index in range(tweets_count):
         vectors = split_sequence(seq_list[tweet_index], win_size, hop)
         x += vectors
+        if y_list[tweet_index] == 0:
+            neutral_count_tokens += len(vectors)
+        if y_list[tweet_index] == 1:
+            differ_count_tokens += len(vectors)
+
         y += [utils.to_categorical(y_list[tweet_index], 2)] * len(vectors)
 
-    return np.array(x), np.array(y)
+    return np.array(x), np.array(y), neutral_count_tokens, differ_count_tokens
 
 
 def make_train_test(
@@ -390,7 +411,7 @@ plt.bar(diagramX, diagramY, tick_label=tick_label,
 plt.title('tweets data!')
 plt.show()
 
-plt.bar(range(200), compoundArr[100:300], color=compoundClrArr,
+plt.bar(range(200), compoundArr[0:200], color=compoundClrArr,
         width=0.8)
 plt.title('tweets compound!')
 plt.show()
@@ -424,9 +445,27 @@ print("Фрагмент обучающего текста:")
 print("В виде оригинального текста:              ", text_train[100][:101])
 print("Он же в виде последовательности индексов: ", seq_train[100][:20])
 
-x_train, y_train = vectorize_sequence(seq_train, classes_train, WIN_SIZE, WIN_HOP)
-x_test, y_test = vectorize_sequence(seq_test, classes_test, WIN_SIZE, WIN_HOP)
-x_val, y_val = vectorize_sequence(seq_val, classes_val, WIN_SIZE, WIN_HOP)
+x_train, y_train, nt_train, dt_train = vectorize_sequence(seq_train, classes_train, WIN_SIZE, WIN_HOP)
+x_test, y_test, nt_test, dt_test = vectorize_sequence(seq_test, classes_test, WIN_SIZE, WIN_HOP)
+x_val, y_val, nt_val, dt_val = vectorize_sequence(seq_val, classes_val, WIN_SIZE, WIN_HOP)
+
+diagramY = [dt_train, nt_train]
+plt.bar(diagramX, diagramY, tick_label=tick_label,
+        width=0.8, color=['red', 'green'])
+plt.title('tweets train token data!')
+plt.show()
+
+diagramY = [dt_test, nt_test]
+plt.bar(diagramX, diagramY, tick_label=tick_label,
+        width=0.8, color=['red', 'green'])
+plt.title('tweets test token data!')
+plt.show()
+
+diagramY = [dt_val, nt_val]
+plt.bar(diagramX, diagramY, tick_label=tick_label,
+        width=0.8, color=['red', 'green'])
+plt.title('tweets val token data!')
+plt.show()
 
 print(x_train.shape, y_train.shape)
 print(x_test.shape, y_test.shape)
