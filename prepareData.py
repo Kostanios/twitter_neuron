@@ -10,7 +10,12 @@ from sklearn.model_selection import train_test_split
 from secret import consumer_secret, consumer_key
 import gensim
 import matplotlib.pyplot as plt
+from nltk.sentiment import SentimentIntensityAnalyzer
+from nltk import download
 
+download('vader_lexicon')
+
+senti = SentimentIntensityAnalyzer()
 
 # Twitter API credentials
 
@@ -97,7 +102,25 @@ allTweets = []
 
 tweetsDataFrame = tweetsDataFrame.sort_values(by=["created_at"], ignore_index=True)
 
-for rowIndex in range(len(tweetsDataFrame['created_at'])):
+neg = 0
+neu = 0
+pos = 0
+compound = 0
+compoundArr = []
+compoundClrArr = []
+typesColors = {
+    0: 'red',
+    1: 'green',
+}
+tweetsLen = len(tweetsDataFrame['created_at'])
+
+for rowIndex in range(tweetsLen):
+    kvp = senti.polarity_scores(re.sub(r"@[A-z]+|_", "nickname", tweetsDataFrame['tweet'][rowIndex]))
+    neg = neg + (kvp['neg']/tweetsLen)
+    neu = neu + (kvp['neu'] / tweetsLen)
+    pos = pos + (kvp['pos'] / tweetsLen)
+    compound = compound + (kvp['compound'] / tweetsLen)
+
     allTweets.append([
         tweetsDataFrame['id'][rowIndex],
         parce_string_to_date(tweetsDataFrame['date'][rowIndex]),
@@ -105,8 +128,12 @@ for rowIndex in range(len(tweetsDataFrame['created_at'])):
         tweetsDataFrame["likes_count"][rowIndex],
         tweetsDataFrame["retweets_count"][[rowIndex]]
     ])
-print(len(allTweets))
 
+print(len(allTweets))
+print(f'neg - {neg}')
+print(f'pos - {pos}')
+print(f'neu - {neu}')
+print(f'compound - {compound}')
 all_tweet_files = os.listdir("tweets/")
 # for file_path in all_tweet_files:
 #     with open(f'tweets/{file_path}', 'r', encoding="utf-8") as f:
@@ -120,10 +147,85 @@ all_tweet_files = os.listdir("tweets/")
 # 1 - dump
 # 2 - pump
 
+# tweetIndex = 0
+#
+# pump_count = 0
+# dump_count = 0
+# neutral_count = 0
+#
+# for rowIndex in range(len(TSLADataFrame['Date'])):
+#     nextPrice = TSLADataFrame['Adj Close'][rowIndex]
+#     if startCandleDate is None:
+#         startCandleDate = parce_string_to_date(TSLADataFrame['Date'][rowIndex])
+#         startPrice = nextPrice
+#     else:
+#         endCandleDate = parce_string_to_date(TSLADataFrame['Date'][rowIndex])
+#
+#         # define differ type
+#         different_type = 0
+#         ratio = startPrice / nextPrice
+#         if ratio > 1.001:
+#             different_type = 2
+#         if ratio < 0.999:
+#             different_type = 1
+#         # For future calculate
+#         #
+#         # different = nextPrice - startPrice
+#         # candlesList.append(different)
+#         # startPrice = nextPrice
+#
+#         # datePriceDict[df['Date'][rowIndex]] = df['Adj Close'][rowIndex]
+#
+#         # print(startCandleDate)
+#         # print(startPrice)
+#         # print(endCandleDate)
+#         # print(nextPrice)
+#
+#         try:
+#             tweetsLikesCount = 0
+#             tweetsRetweetsCount = 0
+#             periodTweets = []
+#             periodValues = []
+#
+#             while allTweets[tweetIndex][1] < endCandleDate:
+#                 if allTweets[tweetIndex][1] >= startCandleDate:
+#                     tweetsLikesCount += allTweets[tweetIndex][3]
+#                     tweetsRetweetsCount += allTweets[tweetIndex][4]
+#                     periodTweets.append(allTweets[tweetIndex])
+#                     periodValues.append(different_type)
+#                 else:
+#                     print(f'{allTweets[tweetIndex][1]} - tweet date')
+#                     print(f'{endCandleDate} - end date')
+#                 tweetIndex = tweetIndex + 1
+#
+#             if len(periodTweets) > 0:
+#                 tweetsLikesCountMinimum = tweetsLikesCount / len(periodTweets) / 2
+#
+#                 for periodTweetIndex in range(len(periodTweets)):
+#                     if periodTweets[periodTweetIndex][3] > tweetsLikesCountMinimum:
+#                         word2vecDF = word2vecDF.append({'text': periodTweets[periodTweetIndex][2], 'type': periodValues[periodTweetIndex]}, ignore_index=True)
+#                         x_data.append(periodTweets[periodTweetIndex][2])
+#                         y_data.append(periodValues[periodTweetIndex])
+#                         if periodValues[periodTweetIndex] == 1:
+#                             dump_count += 1
+#                         if periodValues[periodTweetIndex] == 2:
+#                             pump_count += 1
+#                         if periodValues[periodTweetIndex] == 0:
+#                             neutral_count += 1
+#
+#             startCandleDate = endCandleDate
+#             startPrice = nextPrice
+#         except IndexError:
+#             print(f'tweet with {tweetIndex} index not added')
+
+# 2 class refactor
+
+# differ_types
+# 0 - equal
+# 1 - differ
 tweetIndex = 0
 
-pump_count = 0
-dump_count = 0
+differ_count = 0
 neutral_count = 0
 
 for rowIndex in range(len(TSLADataFrame['Date'])):
@@ -137,9 +239,9 @@ for rowIndex in range(len(TSLADataFrame['Date'])):
         # define differ type
         different_type = 0
         ratio = startPrice / nextPrice
-        if ratio > 1.001:
-            different_type = 2
-        if ratio < 0.999:
+        if ratio > 1.012:
+            different_type = 1
+        if ratio < 0.98:
             different_type = 1
         # For future calculate
         #
@@ -164,6 +266,9 @@ for rowIndex in range(len(TSLADataFrame['Date'])):
                 if allTweets[tweetIndex][1] >= startCandleDate:
                     tweetsLikesCount += allTweets[tweetIndex][3]
                     tweetsRetweetsCount += allTweets[tweetIndex][4]
+                    kvp = senti.polarity_scores(re.sub(r"@[A-z]+|_", "nickname", allTweets[tweetIndex][2]))
+                    compoundArr.append(kvp['compound'])
+                    compoundClrArr.append(typesColors[different_type])
                     periodTweets.append(allTweets[tweetIndex])
                     periodValues.append(different_type)
                 else:
@@ -175,14 +280,15 @@ for rowIndex in range(len(TSLADataFrame['Date'])):
                 tweetsLikesCountMinimum = tweetsLikesCount / len(periodTweets) / 2
 
                 for periodTweetIndex in range(len(periodTweets)):
+
                     if periodTweets[periodTweetIndex][3] > tweetsLikesCountMinimum:
                         word2vecDF = word2vecDF.append({'text': periodTweets[periodTweetIndex][2], 'type': periodValues[periodTweetIndex]}, ignore_index=True)
                         x_data.append(periodTweets[periodTweetIndex][2])
                         y_data.append(periodValues[periodTweetIndex])
                         if periodValues[periodTweetIndex] == 1:
-                            dump_count += 1
+                            differ_count += 1
                         if periodValues[periodTweetIndex] == 2:
-                            pump_count += 1
+                            differ_count += 1
                         if periodValues[periodTweetIndex] == 0:
                             neutral_count += 1
 
@@ -248,7 +354,7 @@ def vectorize_sequence(
     for tweet_index in range(tweets_count):
         vectors = split_sequence(seq_list[tweet_index], win_size, hop)
         x += vectors
-        y += [utils.to_categorical(y_list[tweet_index], 3)] * len(vectors)
+        y += [utils.to_categorical(y_list[tweet_index], 2)] * len(vectors)
 
     return np.array(x), np.array(y)
 
@@ -269,20 +375,34 @@ def make_train_test(
         seq_test = None
     if txt_val:
         # transform word to tokens
-        seq_val = tokenizer.texts_to_sequences(txt_test)
+        seq_val = tokenizer.texts_to_sequences(txt_val)
     else:
         seq_val = None
 
     return seq_train, seq_test, seq_val
 
-diagramX = [1, 2, 3]
-tick_label = ['dump', 'pump', 'neutral']
-diagramY = [dump_count, pump_count, neutral_count]
+diagramX = [1, 2]
+tick_label = ['differ', 'neutral']
+diagramY = [differ_count, neutral_count]
 
 plt.bar(diagramX, diagramY, tick_label=tick_label,
         width=0.8, color=['red', 'green'])
 plt.title('tweets data!')
 plt.show()
+
+plt.bar(range(200), compoundArr[100:300], color=compoundClrArr,
+        width=0.8)
+plt.title('tweets compound!')
+plt.show()
+
+# diagramX = [1, 2, 3]
+# tick_label = ['dump', 'pump', 'neutral']
+# diagramY = [dump_count, pump_count, neutral_count]
+#
+# plt.bar(diagramX, diagramY, tick_label=tick_label,
+#         width=0.8, color=['red', 'green'])
+# plt.title('tweets data!')
+# plt.show()
 VOCAB_SIZE = 20000
 WIN_SIZE = 5
 WIN_HOP = 1
@@ -310,6 +430,7 @@ x_val, y_val = vectorize_sequence(seq_val, classes_val, WIN_SIZE, WIN_HOP)
 
 print(x_train.shape, y_train.shape)
 print(x_test.shape, y_test.shape)
+print(x_val.shape, y_val.shape)
 
 word2vecDF['text_clean'] = word2vecDF['text'].apply(lambda text: gensim.utils.simple_preprocess(text))
 word2vecDF['text_clean'] = word2vecDF['text'].apply(lambda text: gensim.utils.simple_preprocess(text))

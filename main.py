@@ -8,7 +8,7 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from prepareData import VOCAB_SIZE, WIN_SIZE, x_train, y_train, x_test, y_test, x_val, y_val
 
 CLASS_LIST = ['neutral', 'dump', 'pump']
-
+CLASS_LIST = ['differ', 'neutral']
 def make_mod(
     VOCAB_SIZE,
     WIN_SIZE,
@@ -101,7 +101,7 @@ def eval_model(
     ax.set_title(f'Neural network {title}: normalized mistakes matrix', fontsize=18)
     disp = ConfusionMatrixDisplay(confusion_matrix=cm,
                                   display_labels=class_labels)
-    disp.plot(ax=ax)
+    disp.plot()
     plt.xlabel('prediction classes', fontsize=26)
     plt.ylabel('actual classes', fontsize=26)
     fig.autofmt_xdate(rotation=45)
@@ -156,7 +156,7 @@ def compile_train_eval_model(
 
     return model
 
-model_Conv_1 = make_mod(VOCAB_SIZE, WIN_SIZE, 3)
+model_Conv_1 = make_mod(VOCAB_SIZE, WIN_SIZE, 2)
 
 mymodel = compile_train_eval_model(
     model_Conv_1,
