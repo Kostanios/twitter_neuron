@@ -12,6 +12,7 @@ import gensim
 import matplotlib.pyplot as plt
 from nltk.sentiment import SentimentIntensityAnalyzer
 from nltk import download
+import random
 
 download('vader_lexicon')
 
@@ -123,24 +124,28 @@ typesColors = {
 }
 tweetsLen = len(tweetsDataFrame['created_at'])
 
+tweets_key_regexes = [r"tesla", r"tsla", r"team", r"giga berlin", r"teams", r"model .*", r"model", r"autopilot",
+                      r"car", r"radar", r"space", r"star", r"china", r"rocket", r"liberty", r"spaceship", r"dragon",
+                      r"nasa", r"falcon"]
+
 for rowIndex in range(tweetsLen):
-    kvp = senti.polarity_scores(re.sub(r"@[A-z]+|_", "nickname", tweetsDataFrame['tweet'][rowIndex]))
-    neg = neg + (kvp['neg']/tweetsLen)
+    tweet_text = re.sub(r"(@[A-z]+|_)|(https?:\/\/.*\.[A-z]*)|(#[A-z]+)", "",
+                        tweetsDataFrame['tweet'][rowIndex]).lower()
+    kvp = senti.polarity_scores(tweet_text)
+    neg = neg + (kvp['neg'] / tweetsLen)
     neu = neu + (kvp['neu'] / tweetsLen)
     pos = pos + (kvp['pos'] / tweetsLen)
     compound = compound + (kvp['compound'] / tweetsLen)
 
-    tweets_key_regexes = [r"tesla", r"tsla", r"team", r"giga berlin", r"teams", r"model .*", r"model", r"autopilot",
-                          r"car", r"radar", r"space", r"star"]
-    tweet_text = re.sub(r"@[A-z]+|_", "nickname", tweetsDataFrame['tweet'][rowIndex]).lower()
-    if key_words_filter(tweets_key_regexes, tweet_text):
-        allTweets.append([
-            tweetsDataFrame['id'][rowIndex],
-            parce_string_to_date(tweetsDataFrame['date'][rowIndex]),
-            re.sub(r"@[A-z]+|_", "nickname", tweetsDataFrame['tweet'][rowIndex]),
-            tweetsDataFrame["likes_count"][rowIndex],
-            tweetsDataFrame["retweets_count"][[rowIndex]]
-        ])
+    tweet_text = re.sub(r"(@[A-z]+|_)|(https?:\/\/.*\.[A-z]*)|(#[A-z]+)", "", tweetsDataFrame['tweet'][rowIndex]).lower()
+    # if key_words_filter(tweets_key_regexes, tweet_text):
+    allTweets.append([
+        tweetsDataFrame['id'][rowIndex],
+        parce_string_to_date(tweetsDataFrame['date'][rowIndex]),
+        tweet_text,
+        tweetsDataFrame["likes_count"][rowIndex],
+        tweetsDataFrame["retweets_count"][[rowIndex]]
+    ])
 
 print(len(allTweets))
 print(f'neg - {neg}')
@@ -241,21 +246,37 @@ tweetIndex = 0
 differ_count = 0
 neutral_count = 0
 
-for rowIndex in range(len(TSLADataFrame['Date'])):
+candlesNumber = len(TSLADataFrame['Date'])
+
+for rowIndex in range(candlesNumber):
     nextPrice = TSLADataFrame['Adj Close'][rowIndex]
     if startCandleDate is None:
         startCandleDate = parce_string_to_date(TSLADataFrame['Date'][rowIndex])
         startPrice = nextPrice
     else:
         endCandleDate = parce_string_to_date(TSLADataFrame['Date'][rowIndex])
-
         # define differ type
         different_type = 0
-        ratio = startPrice / nextPrice
-        if ratio > 1.03:
-            different_type = 1
-        if ratio < 0.97:
-            different_type = 1
+
+        if rowIndex + 10 < candlesNumber:
+            next_10_prices = TSLADataFrame['Adj Close'][rowIndex: rowIndex + 10]
+            max10Value = next_10_prices.max()
+            min10Value = next_10_prices.min()
+
+            currentAndMaxDiffer = max10Value - nextPrice
+            currentAndMinDiffer = nextPrice - min10Value
+            percentValue = nextPrice * 0.025
+
+            if currentAndMaxDiffer >= percentValue:
+                different_type = 1
+            if currentAndMinDiffer >= percentValue:
+                different_type = 1
+
+        # ratio = startPrice / nextPrice
+        # if ratio > 1.03:
+        #     different_type = 1
+        # if ratio < 0.97:
+        #     different_type = 1
         # For future calculate
         #
         # different = nextPrice - startPrice
@@ -269,46 +290,65 @@ for rowIndex in range(len(TSLADataFrame['Date'])):
         # print(endCandleDate)
         # print(nextPrice)
 
-        try:
-            tweetsLikesCount = 0
-            tweetsRetweetsCount = 0
-            periodTweets = []
-            periodValues = []
+            try:
+                tweetsLikesCount = 0
+                tweetsRetweetsCount = 0
+                periodTweets = []
+                periodValues = []
 
-            while allTweets[tweetIndex][1] < endCandleDate:
-                if allTweets[tweetIndex][1] >= startCandleDate:
-                    tweetsLikesCount += allTweets[tweetIndex][3]
-                    tweetsRetweetsCount += allTweets[tweetIndex][4]
-                    kvp = senti.polarity_scores(re.sub(r"@[A-z]+|_", "nickname", allTweets[tweetIndex][2]))
-                    compoundArr.append(kvp['compound'])
-                    compoundClrArr.append(typesColors[different_type])
-                    periodTweets.append(allTweets[tweetIndex])
-                    periodValues.append(different_type)
-                else:
-                    print(f'{allTweets[tweetIndex][1]} - tweet date')
-                    print(f'{endCandleDate} - end date')
-                tweetIndex = tweetIndex + 1
+                while allTweets[tweetIndex][1] < endCandleDate:
+                    if allTweets[tweetIndex][1] >= startCandleDate:
+                        tweetsLikesCount += allTweets[tweetIndex][3]
+                        tweetsRetweetsCount += allTweets[tweetIndex][4]
+                        kvp = senti.polarity_scores(re.sub(r"@[A-z]+|_", "", allTweets[tweetIndex][2]))
+                        compoundArr.append(kvp['compound'])
+                        compoundClrArr.append(typesColors[different_type])
+                        periodTweets.append(allTweets[tweetIndex])
+                        periodValues.append(different_type)
+                        # if different_type == 1:
+                        #     with open(f'tweets/{allTweets[tweetIndex][0]}.txt', 'w', encoding="utf-8") as f:
+                        #         f.write(f'{allTweets[tweetIndex][0]}////{allTweets[tweetIndex][1]}////{allTweets[tweetIndex][2]}')
 
-            if len(periodTweets) > 0:
-                tweetsLikesCountMinimum = tweetsLikesCount / len(periodTweets) / 2
+                    else:
+                        print(f'{allTweets[tweetIndex][1]} - tweet date')
+                        print(f'{endCandleDate} - end date')
+                    tweetIndex = tweetIndex + 1
+                tweet_text = allTweets[tweetIndex][2]
+                if len(periodTweets) > 0:
+                    tweetsLikesCountMinimum = 0
+                    # tweetsLikesCountMinimum = tweetsLikesCount / len(periodTweets)
+                    for periodTweetIndex in range(len(periodTweets)):
+                        # likes filter
+                        if periodTweets[periodTweetIndex][3] > tweetsLikesCountMinimum:
+                            # word filter
+                            x_data.append(periodTweets[periodTweetIndex][2])
+                            if key_words_filter(tweets_key_regexes, tweet_text) and periodValues[periodTweetIndex] == 1:
+                                y_data.append(1)
+                                word2vecDF = word2vecDF.append(
+                                    {'text': periodTweets[periodTweetIndex][2], 'type': 1},
+                                    ignore_index=True)
+                                differ_count += 1
+                            else:
+                                y_data.append(0)
+                                word2vecDF = word2vecDF.append(
+                                    {'text': periodTweets[periodTweetIndex][2], 'type': 0},
+                                    ignore_index=True)
+                                neutral_count += 1
+                            # word2vecDF = word2vecDF.append({'text': periodTweets[periodTweetIndex][2], 'type': periodValues[periodTweetIndex]}, ignore_index=True)
+                            # if key_words_filter(tweets_key_regexes, tweet_text) or periodValues[periodTweetIndex] == 0:
+                            #     x_data.append(periodTweets[periodTweetIndex][2])
+                            #     y_data.append(periodValues[periodTweetIndex])
+                            #     if periodValues[periodTweetIndex] == 1:
+                            #         differ_count += 1
+                            #     if periodValues[periodTweetIndex] == 2:
+                            #         differ_count += 1
+                            #     if periodValues[periodTweetIndex] == 0:
+                            #         neutral_count += 1
 
-                for periodTweetIndex in range(len(periodTweets)):
-
-                    if periodTweets[periodTweetIndex][3] > tweetsLikesCountMinimum:
-                        word2vecDF = word2vecDF.append({'text': periodTweets[periodTweetIndex][2], 'type': periodValues[periodTweetIndex]}, ignore_index=True)
-                        x_data.append(periodTweets[periodTweetIndex][2])
-                        y_data.append(periodValues[periodTweetIndex])
-                        if periodValues[periodTweetIndex] == 1:
-                            differ_count += 1
-                        if periodValues[periodTweetIndex] == 2:
-                            differ_count += 1
-                        if periodValues[periodTweetIndex] == 0:
-                            neutral_count += 1
-
-            startCandleDate = endCandleDate
-            startPrice = nextPrice
-        except IndexError:
-            print(f'tweet with {tweetIndex} index not added')
+                startCandleDate = endCandleDate
+                startPrice = nextPrice
+            except IndexError:
+                print(f'tweet with {tweetIndex} index not added')
 
 # print(datePriceDict)
 print(len(x_data))
@@ -427,9 +467,14 @@ plt.show()
 VOCAB_SIZE = 20000
 WIN_SIZE = 5
 WIN_HOP = 1
-train_text_size = int(len(x_data) * 0.7)
-test_text_size = int(len(x_data) * 0.05)
+train_text_size = int(len(x_data) * 0.60)
+test_text_size = int(len(x_data) * 0.15)
 val_text_size = int(len(x_data) * 0.25)
+
+shuffleContainer = list(zip(x_data, y_data))
+random.shuffle(shuffleContainer)
+
+x_data, y_data = zip(*shuffleContainer)
 
 text_train = x_data[:train_text_size]
 classes_train = y_data[:train_text_size]

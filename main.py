@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from keras.optimizers import Adamax
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, SpatialDropout1D, BatchNormalization, Embedding, Flatten, Conv1D, MaxPooling1D
 from keras.utils import plot_model
@@ -8,7 +9,7 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from prepareData import VOCAB_SIZE, WIN_SIZE, x_train, y_train, x_test, y_test, x_val, y_val
 
 CLASS_LIST = ['neutral', 'dump', 'pump']
-CLASS_LIST = ['differ', 'neutral']
+CLASS_LIST = ['neutral', 'differ']
 def make_mod(
     VOCAB_SIZE,
     WIN_SIZE,
@@ -16,7 +17,7 @@ def make_mod(
 ):
 
     model = Sequential()
-    model.add(Embedding(VOCAB_SIZE, 100, input_length=WIN_SIZE))
+    model.add(Embedding(VOCAB_SIZE, 96, input_length=WIN_SIZE))
     model.add(SpatialDropout1D(0.2))
     model.add(BatchNormalization())
     model.add(Conv1D(2, 1, activation='relu'))
@@ -25,7 +26,7 @@ def make_mod(
     model.add(Dropout(0.2))
     model.add(BatchNormalization())
     model.add(Flatten())
-    model.add(Dense(100, activation='relu'))
+    model.add(Dense(96, activation='relu'))
     model.add(Dense(CLASS_COUNT, activation='softmax'))
     return model
 
@@ -156,20 +157,22 @@ def compile_train_eval_model(
 
     return model
 
-model_Conv_1 = make_mod(VOCAB_SIZE, WIN_SIZE, 2)
 
-mymodel = compile_train_eval_model(
+model_Conv_1 = make_mod(VOCAB_SIZE, WIN_SIZE, 2)
+opt = Adamax(learning_rate=0.0001)
+
+my_model = compile_train_eval_model(
     model_Conv_1,
     x_train, y_train,
     x_test, y_test,
-    optimizer='adam',
-    epochs=15,
-    batch_size=40,
+    optimizer=opt,
+    epochs=100,
+    batch_size=128,
     class_labels=CLASS_LIST,
     title='elonmask tweets'
 )
 
-y_pred = mymodel.predict(x_val)
+y_pred = my_model.predict(x_val)
 
 print(y_pred)
 print(y_val)
